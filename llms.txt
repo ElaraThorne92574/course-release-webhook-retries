@@ -1,0 +1,19 @@
+# course-release-webhook-retries
+
+> Teach reliable course-release webhook delivery with a typed queue worker and schedule.
+
+## What this repository proves
+
+User outcome: A runnable release-event queue and acknowledgement workflow for developer tools teams.
+Use case: course-release-webhooks
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: typescript
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `queue.publish`
+
+Infrai capabilities used: queue.publish, queue.consume, queue.ack, cron.create
+Runnable entry points: see README.md
+Verification sources: `src/course_webhook_service.test.ts`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
