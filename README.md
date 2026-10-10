@@ -1,10 +1,10 @@
 # Reliable course-release webhooks
 
-When a lesson release finishes, the learning platform needs a webhook that can wait in a queue while a developer investigates delivery diagnostics. This example shows the whole handoff: zod validates the release event, Infrai's `queue.publish` stores it, a worker consumes one message and acknowledges it, and `cron.create` can call the same service every five minutes. One `INFRAI_API_KEY` covers the queue and schedule calls, so the teaching example stays small.
+Lesson release done? The platform needs a webhook that sits in a queue while you debug delivery. I benchmarked the handoff: zod validates the event, Infrai's `queue.publish` stores it. A worker pulls one message, acks it. `cron.create` hits the same service every five minutes. With one key, `INFRAI_API_KEY` covers queue and schedule calls. Keeps the example small, low glue.
 
 ## Start with the decision
 
-The business decision is explicit in `deliverNext`: only a message that was actually returned by `queue.consume` is acknowledged. A missing message leaves the queue untouched, allowing the next run to try again. Retries for a busy service honor `Retry-After` and use exponential delay; writes carry an idempotency key on each request.
+`deliverNext` makes the call: only ack a message that `queue.consume` actually returned. No message? Queue stays put, next run retries. Busy service? Retries honor `Retry-After` with exponential backoff. Every write sends an idempotency key. Simple, no config bloat.
 
 ## Run the local lesson
 
@@ -14,19 +14,19 @@ npm test
 npm run typecheck
 ```
 
-The focused test feeds `learner_count: 12` and expects acceptance, then feeds `learner_count: -1` and expects rejection. The exact command is `npm test`.
+Test feeds `learner_count: 12`, expects accept. Then `learner_count: -1`, expects reject. Command is `npm test`.
 
-To send a real event, set `INFRAI_API_KEY` in the shell and run `npm start`. The sample prints the returned `message_id`; set the key before running because the client reads it from `process.env`.
+For a real event, export `INFRAI_API_KEY` in shell, run `npm start`. Prints `message_id`. Set the key first; client pulls it from `process.env`. DX matters.
 
 ## Read the wiring
 
-`enqueueRelease()` is the producer: it parses a course id, release id, learner count, and diagnostics URL before calling `queue.publish({ payload })`. `deliverNext()` is the consumer: it calls `queue.consume({ max_messages: 1, visibility_timeout: 60 })`, then calls `queue.ack({ message_id })` after the handoff is complete. `registerReleaseSchedule()` calls `cron.create({ cron_expr, task })`, where `task` is your webhook URL.
+`enqueueRelease()` produces: parses course id, release id, learner count, diagnostics URL, then calls `queue.publish({ payload })`. `deliverNext()` consumes: calls `queue.consume({ max_messages: 1, visibility_timeout: 60 })`, then `queue.ack({ message_id })` after handoff. `registerReleaseSchedule()` calls `cron.create({ cron_expr, task })`, with `task` as your webhook URL.
 
-The reusable boundary is plain TypeScript and fetch, with no SDK to install for the API itself; that makes the pattern easy to transplant into a course worker written in another language.
+Boundary is plain TypeScript and fetch. No SDK to install for the API. That's a plain REST call from any language, easy to port to a course worker in another stack.
 
 ## The gotcha worth teaching
 
-Decode the `{ ok, data, error, metadata }` envelope before interpreting the HTTP status. A rejected request is a useful business result for your caller, while transport failures remain exceptions; `InfraiError` keeps that distinction visible at the boundary.
+Decode `{ ok, data, error, metadata }` envelope before trusting HTTP status. Rejected request = business result for caller. Transport failure = exception. `InfraiError` keeps that split at the boundary. Don't blur them.
 
 ## License
 
